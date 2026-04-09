@@ -37,6 +37,11 @@ const RoleSchema = new mongoose.Schema(
       ref: 'User',
       default: null,
     },
+    nivel: {
+    type: Number,
+    required: true,
+    default: 1
+    }
   },
   {
     timestamps: true,           // createdAt, updatedAt automáticos

@@ -1,15 +1,12 @@
 /**
  * middleware/auth.js
- *
- * Protección de rutas con JWT Bearer.
- * Extrae el token del header Authorization: Bearer <token>
  */
 
-const { verificarAccessToken }            = require('../utils/jwt');
+const { verificarAccessToken } = require('../utils/jwt');
 const { unauthorized, forbidden, serverError } = require('../utils/response');
-const User                                = require('../models/User');
+const User = require('../models/User');
 
-// ─── Verifica que el token sea válido y que el usuario esté activo ────────────
+// ─── AUTENTICAR ──────────────────────────────────────────────────────────────
 async function autenticar(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
@@ -31,14 +28,18 @@ async function autenticar(req, res, next) {
       return unauthorized(res, msg);
     }
 
-    // Validar que el usuario siga activo en BD
-    const user = await User.findById(decoded.sub).populate('roles', 'nombre activo');
+    const user = await User.findById(decoded.sub)
+      .populate('roles', 'nombre activo nivel');
+
+    if (!user) {
+      return unauthorized(res, 'Usuario no encontrado');
+    }
 
     const rutasPermitidas = [
-    '/aceptar-aviso',
-    '/me',
-    '/logout',
-    '/cambiar-password'
+      '/aceptar-aviso',
+      '/me',
+      '/logout',
+      '/cambiar-password'
     ];
 
     if (
@@ -48,27 +49,56 @@ async function autenticar(req, res, next) {
       return forbidden(res, 'Debes aceptar el aviso de privacidad');
     }
 
-    // Adjuntar info al request para uso posterior
+    //  Roles activos
+    const rolesActivos = user.roles.filter(r => r.activo);
+
+    //  Nivel máximo del usuario
+    const niveles = rolesActivos.map(r => r.nivel || 0);
+    const minNivel = niveles.length ? Math.min(...niveles) : 0;
+
+    // Adjuntar info al request
     req.usuario = user;
-    req.roles   = user.roles.filter((r) => r.activo).map((r) => r.nombre);
-    
+    req.roles = rolesActivos.map(r => r.nombre);
+    req.nivel = minNivel; // 🔥 CLAVE
+
     next();
   } catch (err) {
     serverError(res, err);
   }
 }
 
-// ─── Factory: restringe acceso a uno o varios roles ──────────────────────────
-function requiereRol(...rolesPermitidos) {
-  return (req, _res, next) => {
-    const normalizados = rolesPermitidos.map((r) => r.toUpperCase());
-    const tiene        = (req.roles || []).some((r) => normalizados.includes(r));
 
-    if (!tiene) {
-      return forbidden(_res, 'No tienes permisos para realizar esta acción');
+// ─── NUEVO: REQUIERE NIVEL (PRO) ─────────────────────────────────────────────
+function requiereNivel(nivelMinimo) {
+  return (req, res, next) => {
+    if ((req.nivel || 0) < nivelMinimo) {
+      return forbidden(res, 'No tienes permisos para realizar esta acción');
     }
     next();
   };
 }
 
-module.exports = { autenticar, requiereRol };
+
+// ─── OPCIONAL: mantener compatibilidad con roles ─────────────────────────────
+function requiereRol(...rolesPermitidos) {
+  return (req, res, next) => {
+    const rolesUsuario = req.roles || [];
+
+    // 🔥 ADMIN (o el rol con mayor nivel) siempre pasa
+    if ((req.nivel || 0) >= 100) {
+      return next();
+    }
+
+    const normalizados = rolesPermitidos.map(r => r.toUpperCase());
+    const tiene = rolesUsuario.some(r => normalizados.includes(r));
+
+    if (!tiene) {
+      return forbidden(res, 'No tienes permisos para realizar esta acción');
+    }
+
+    next();
+  };
+}
+
+
+module.exports = { autenticar, requiereRol, requiereNivel };

@@ -108,8 +108,20 @@ async function logout(req, res) {
 // ─── GET /auth/me ─────────────────────────────────────────────────────────────
 async function me(req, res) {
   try {
-    const user = await User.findById(req.usuario._id).populate('roles', 'nombre descripcion');
-    return ok(res, { usuario: user.toPublic() });
+    const user = await User.findById(req.usuario._id)
+      .populate('roles', 'nombre descripcion activo nivel');
+
+    if (!user) {
+      return unauthorized(res, 'Usuario no encontrado');
+    }
+
+    return ok(res, {
+      usuario: {
+        ...user.toPublic(),
+        nivel: req.nivel 
+      }
+    });
+
   } catch (err) {
     serverError(res, err);
   }
