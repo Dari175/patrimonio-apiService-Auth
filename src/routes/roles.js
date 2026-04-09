@@ -2,18 +2,18 @@
  * routes/roles.js
  */
 
-const { Router }      = require('express');
+const { Router } = require('express');
 const { body, param } = require('express-validator');
-const ctrl            = require('../controllers/roleController');
-const { autenticar, requiereRol } = require('../middleware/auth');
-const { validate }    = require('../middleware/validate');
+const ctrl = require('../controllers/roleController');
+const { autenticar } = require('../middleware/auth');
+const { validate } = require('../middleware/validate');
 
 const router = Router();
 
 router.use(autenticar);
 
 // ── GET /roles ────────────────────────────────────────────────────────────────
-router.get('/', ctrl.listar);  // Cualquier usuario autenticado puede ver los roles
+router.get('/', ctrl.listar);
 
 // ── GET /roles/:id ────────────────────────────────────────────────────────────
 router.get(
@@ -26,12 +26,14 @@ router.get(
 // ── POST /roles ───────────────────────────────────────────────────────────────
 router.post(
   '/',
-  requiereRol('DIRECTOR'),
   [
     body('nombre')
       .notEmpty().withMessage('El nombre del rol es obligatorio')
       .isLength({ max: 50 }).withMessage('El nombre no puede superar 50 caracteres'),
     body('descripcion').optional().isLength({ max: 200 }),
+    body('nivel')
+      .isInt({ min: 1, max: 5 })
+      .withMessage('El nivel debe estar entre 1 y 5'), // 🔥 IMPORTANTE
   ],
   validate,
   ctrl.crear
@@ -40,10 +42,13 @@ router.post(
 // ── PUT /roles/:id ────────────────────────────────────────────────────────────
 router.put(
   '/:id',
-  requiereRol('DIRECTOR'),
   [
     param('id').isMongoId().withMessage('ID inválido'),
     body('descripcion').optional().isLength({ max: 200 }),
+    body('nivel')
+      .optional()
+      .isInt({ min: 1, max: 5 })
+      .withMessage('El nivel debe estar entre 1 y 5'),
   ],
   validate,
   ctrl.actualizar
@@ -52,7 +57,6 @@ router.put(
 // ── PATCH /roles/:id/estado ───────────────────────────────────────────────────
 router.patch(
   '/:id/estado',
-  requiereRol('DIRECTOR'),
   [
     param('id').isMongoId().withMessage('ID inválido'),
     body('activo').isBoolean().withMessage("'activo' debe ser true o false"),
