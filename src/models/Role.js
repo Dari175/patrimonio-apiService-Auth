@@ -1,8 +1,5 @@
 /**
  * models/Role.js
- *
- * Roles dinámicos: se pueden crear y desactivar en tiempo de ejecución.
- * Jamás se eliminan registros; se maneja estado ACTIVO / INACTIVO.
  */
 
 const mongoose = require('mongoose');
@@ -14,7 +11,7 @@ const RoleSchema = new mongoose.Schema(
       required: [true, 'El nombre del rol es obligatorio'],
       unique: true,
       trim: true,
-      uppercase: true,          // Se guarda en mayúsculas para uniformidad
+      uppercase: true,
       maxlength: [50, 'El nombre no puede superar 50 caracteres'],
     },
 
@@ -25,30 +22,46 @@ const RoleSchema = new mongoose.Schema(
       default: '',
     },
 
-    // true = activo (alta) | false = inactivo (baja)
     activo: {
       type: Boolean,
       default: true,
     },
 
-    // Quién realizó la última modificación de estado
     modificadoPor: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       default: null,
     },
+
+    // 🔥 NIVEL (1 = más alto)
     nivel: {
-    type: Number,
-    required: true,
-    default: 1
-    }
+      type: Number,
+      required: true,
+      default: 1
+    },
+
+    // 🔥 PERMISOS DINÁMICOS
+    permisos: [
+      {
+        modulo: {
+          type: String,
+          required: true,
+          trim: true,
+          lowercase: true
+        },
+        acciones: [
+          {
+            type: String,
+            enum: ['crear', 'leer', 'editar', 'eliminar']
+          }
+        ]
+      }
+    ]
   },
   {
-    timestamps: true,           // createdAt, updatedAt automáticos
+    timestamps: true,
     versionKey: false,
   }
 );
-
-// nombre ya tiene índice único por unique:true en el campo
 
 module.exports = mongoose.model('Role', RoleSchema);

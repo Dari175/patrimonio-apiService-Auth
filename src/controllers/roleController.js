@@ -41,8 +41,7 @@ async function obtener(req, res) {
 // ─── POST /roles ──────────────────────────────────────────────────────────────
 async function crear(req, res) {
   try {
-    const { nombre, descripcion } = req.body;
-
+    const { nombre, descripcion, nivel, permisos } = req.body;
     const existe = await Role.findOne({ nombre: nombre.toUpperCase() });
     if (existe) {
       // Si existe pero está inactivo, informar
@@ -57,8 +56,10 @@ async function crear(req, res) {
     }
 
     const rol = await Role.create({
-      nombre:       nombre.toUpperCase(),
+      nombre: nombre.toUpperCase(),
       descripcion,
+      nivel: nivel ?? 1,       // 🔥 nuevo
+      permisos: permisos || [],// 🔥 nuevo
       modificadoPor: req.usuario._id,
     });
 
@@ -71,16 +72,19 @@ async function crear(req, res) {
 // ─── PUT /roles/:id ───────────────────────────────────────────────────────────
 async function actualizar(req, res) {
   try {
-    const { descripcion } = req.body;
-    // Solo se permite actualizar la descripción; el nombre es inmutable para preservar integridad
+    const { descripcion, nivel, permisos } = req.body;
 
     const rol = await Role.findById(req.params.id);
     if (!rol) return notFound(res, 'Rol no encontrado');
 
     if (descripcion !== undefined) rol.descripcion = descripcion;
+    if (nivel !== undefined) rol.nivel = nivel;          // ✅ correcto
+    if (permisos !== undefined) rol.permisos = permisos; // ✅ correcto
+
     rol.modificadoPor = req.usuario._id;
 
     await rol.save();
+
     return ok(res, { mensaje: 'Rol actualizado', rol });
   } catch (err) {
     serverError(res, err);
